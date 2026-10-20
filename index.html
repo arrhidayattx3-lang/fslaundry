@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aplikasi Kerja Harian Laundry</title>
+    <title>Sistem Kerja Harian Laundry</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
@@ -24,12 +24,8 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        // Default URL dari link yang Anda berikan (Bisa diganti langsung lewat menu Pengaturan di layar aplikasi)
+        // URL default dari link Google Sheet yang Anda berikan
         const DEFAULT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwh7fvvRoUDxQADb42ktIkrWqJSHAn_afwH1Pa5nVWW4ajn9tcZsSeI8GuKOS9gW70B4A/exec";
-        
-        // Ganti dengan API Key Gemini Anda jika dijalankan di luar environment preview
-        const apiKey = ""; 
-
         const JOB_LIST = ["CUCI", "DRY", "LIPAT", "SETRIKA", "PACKING", "CUCI SATUAN"];
 
         function App() {
@@ -37,6 +33,9 @@
             const [selectedJob, setSelectedJob] = useState("DRY");
             const [employeeName, setEmployeeName] = useState("");
             const [scriptUrl, setScriptUrl] = useState(DEFAULT_SCRIPT_URL);
+            
+            // API Key sekarang dinamis untuk tiap karyawan, disimpan di memori HP (localStorage)
+            const [geminiApiKey, setGeminiApiKey] = useState(""); 
             const [showSettings, setShowSettings] = useState(false);
 
             const [isProcessing, setIsProcessing] = useState(false);
@@ -48,7 +47,7 @@
             const [editingId, setEditingId] = useState(null);
             const [editValue, setEditValue] = useState("");
 
-            // Muat data tersimpan dari memori browser
+            // Membaca data tersimpan di memori browser HP karyawan
             useEffect(() => {
                 const savedData = localStorage.getItem("fsl_records_v2");
                 if (savedData) {
@@ -59,9 +58,18 @@
 
                 const savedUrl = localStorage.getItem("fsl_script_url");
                 if (savedUrl) setScriptUrl(savedUrl);
+
+                // Mengambil API Key yang diinput mandiri oleh karyawan tersebut di HP-nya
+                const savedApiKey = localStorage.getItem("fsl_gemini_api_key");
+                if (savedApiKey) {
+                    setGeminiApiKey(savedApiKey);
+                } else {
+                    // Jika belum ada, otomatis buka Pengaturan agar mereka sadar harus mengisi
+                    setShowSettings(true);
+                }
             }, []);
 
-            // Render ulang ikon setiap kali tampilan berubah
+            // Buat ikon Lucide
             useEffect(() => {
                 if (window.lucide) window.lucide.createIcons();
             });
@@ -84,7 +92,6 @@
                 }
             };
 
-            // Cek apakah No. Nota sudah pernah diinput dengan jenis pekerjaan yang sama
             const isDuplicate = (resi) => {
                 if (!resi || resi === "-") return false;
                 return laundryData.some(item => 
@@ -93,7 +100,7 @@
                 );
             };
 
-            // Fungsi Kirim ke Google Sheets
+            // Mengirim data ke Google Sheet
             const sendToGoogleSheet = async (rowItem) => {
                 if (!scriptUrl) return;
                 setSyncStatus("syncing");
@@ -119,10 +126,15 @@
                 }
             };
 
-            // Fungsi Ekstrak Gambar dengan AI
+            // Fungsi Membaca Gambar dengan Kecerdasan Buatan (AI)
             const handleProcessImage = async () => {
+                if (!geminiApiKey || geminiApiKey.trim() === "") {
+                    setErrorMsg("ERROR: Kunci API (Gemini API Key) Anda kosong! Silakan klik tombol 'Gerigi' di kanan atas dan masukkan API Key Anda terlebih dahulu.");
+                    setShowSettings(true);
+                    return;
+                }
                 if (!selectedImage) {
-                    setErrorMsg("Harap pilih atau ambil foto nota terlebih dahulu!");
+                    setErrorMsg("Harap ambil atau pilih foto nota terlebih dahulu!");
                     return;
                 }
                 if (!selectedJob) {
@@ -139,15 +151,16 @@
                     const base64Data = selectedImage.split(",")[1];
                     const mimeType = selectedImage.substring(selectedImage.indexOf(":") + 1, selectedImage.indexOf(";"));
 
-                    const promptText = `Baca foto struk laundry ini. Ekstrak informasi berikut dan kembalikan HANYA format JSON murni tanpa awalan atau akhiran apa pun:
+                    // Petunjuk khusus untuk AI Gemini agar mengembalikan data murni
+                    const promptText = `Baca foto struk laundry ini. Ekstrak informasi berikut dan kembalikan HANYA format JSON murni tanpa backticks, tanpa kata pengantar apa pun:
 {
-  "nama": "Nama pelanggan (di sebelah QR code atau atas, contoh: Cynthia Kaliana (DLV) atau NUKI)",
-  "resi": "Nomor resi/nota yang diawali huruf seperti AMT atau ITD (contoh: AMT261013075740990 atau ITD261013190138589)",
+  "nama": "Nama pelanggan (cari yang dekat QR code atau bagian atas, contoh: Cynthia Kaliana (DLV) atau NUKI)",
+  "resi": "Nomor nota/resi yang biasanya diawali huruf seperti AMT atau ITD (contoh: AMT261013075740990 atau ITD261013190138589)",
   "waktu": "Tanggal dan jam pada baris Terima (contoh: Selasa, 13/10/26 07:57)",
   "berat": "Angka berat dalam KG saja gunakan titik untuk desimal (contoh: 6.5 atau 16.8)"
 }`;
 
-                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
@@ -156,21 +169,21 @@
                                     { text: promptText },
                                     { inlineData: { mimeType: mimeType, data: base64Data } }
                                 ]
-                            }],
-                            generationConfig: {
-                                responseMimeType: "application/json"
-                            }
+                            }]
                         })
                     });
+
+                    if (!response.ok) {
+                        throw new Error(`Kunci API salah atau tidak diizinkan oleh Google (Status ${response.status}). Mohon periksa kembali inputan Gemini API Key Anda.`);
+                    }
 
                     const result = await response.json();
                     let rawText = result?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-                    // Pembersih ekstra agar tidak gagal mengurai JSON
                     const firstBrace = rawText.indexOf("{");
                     const lastBrace = rawText.lastIndexOf("}");
                     if (firstBrace === -1 || lastBrace === -1) {
-                        throw new Error("Gagal membaca teks pada foto.");
+                        throw new Error("Gagal membaca tulisan pada foto. Silakan coba foto ulang dengan pencahayaan yang lebih terang.");
                     }
                     const cleanJson = rawText.substring(firstBrace, lastBrace + 1);
                     const parsed = JSON.parse(cleanJson);
@@ -178,9 +191,8 @@
                     const cleanWeight = parseFloat(String(parsed.berat || "0").replace(",", ".").replace(/[^0-9.]/g, "")) || 0;
                     const cleanResi = String(parsed.resi || "-").trim();
 
-                    // Cek duplikasi
                     if (isDuplicate(cleanResi)) {
-                        setErrorMsg(`PERINGATAN: Nota "${cleanResi}" untuk pekerjaan "${selectedJob}" sudah pernah diinput!`);
+                        setErrorMsg(`Peringatan: Nota "${cleanResi}" untuk pekerjaan "${selectedJob}" sudah pernah diinput sebelumnya.`);
                         setIsProcessing(false);
                         return;
                     }
@@ -197,20 +209,19 @@
                     const updatedList = [newEntry, ...laundryData];
                     saveLocalData(updatedList);
 
-                    // Langsung simpan otomatis ke Google Sheet
-                    await sendToGoogleSheet(newEntry);
+                    // Kirim ke Google Sheets secara otomatis (Latar Belakang)
+                    sendToGoogleSheet(newEntry);
 
                     setSuccessMsg(`Berhasil mencatat nota ${newEntry.nama} (${newEntry.berat} Kg - ${newEntry.pekerjaan})`);
                     setSelectedImage(null);
                 } catch (err) {
                     console.error(err);
-                    setErrorMsg("Gagal mengurai data dari AI. Pastikan foto nota terlihat jelas dan tidak buram.");
+                    setErrorMsg("Gagal membaca foto: " + err.message);
                 } finally {
                     setIsProcessing(false);
                 }
             };
 
-            // Hitung total per pekerjaan
             const totals = JOB_LIST.reduce((acc, job) => {
                 acc[job] = laundryData
                     .filter(item => item.pekerjaan === job)
@@ -218,7 +229,6 @@
                 return acc;
             }, {});
 
-            // Simpan Edit Berat (KG)
             const saveEditedWeight = (id) => {
                 const num = parseFloat(String(editValue).replace(",", "."));
                 if (isNaN(num) || num < 0) {
@@ -231,12 +241,9 @@
                 setSuccessMsg("Data berat (KG) berhasil diperbarui!");
             };
 
-            // =========================================================================
-            // FUNGSI DOWNLOAD 2 GAMBAR JPEG SEKALIGUS (1. Kartu Data & 2. Form Kerja Harian)
-            // =========================================================================
             const downloadBothJPEGs = () => {
                 if (laundryData.length === 0) {
-                    alert("Belum ada data untuk disimpan menjadi gambar!");
+                    alert("Belum ada data untuk disimpan!");
                     return;
                 }
                 generateSummaryCardJPEG();
@@ -245,7 +252,6 @@
                 }, 600);
             };
 
-            // Format 1: Gambar Rekap Digital Modern
             const generateSummaryCardJPEG = () => {
                 const canvas = document.createElement("canvas");
                 const rowCount = laundryData.length;
@@ -253,11 +259,9 @@
                 canvas.height = Math.max(650, 420 + rowCount * 42);
                 const ctx = canvas.getContext("2d");
 
-                // Background
                 ctx.fillStyle = "#F8FAFC";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                // Header Biru
                 ctx.fillStyle = "#1D4ED8";
                 ctx.fillRect(0, 0, canvas.width, 110);
                 ctx.fillStyle = "#FFFFFF";
@@ -266,7 +270,6 @@
                 ctx.font = "16px sans-serif";
                 ctx.fillText(`Karyawan: ${employeeName || "-"}   |   Tanggal: ${new Date().toLocaleDateString("id-ID")}`, 35, 85);
 
-                // Kotak Total
                 let xBox = 35;
                 JOB_LIST.forEach((job) => {
                     ctx.fillStyle = "#FFFFFF";
@@ -285,7 +288,6 @@
                     xBox += 123;
                 });
 
-                // Header List
                 let y = 240;
                 ctx.fillStyle = "#1E293B";
                 ctx.fillRect(35, y, 730, 38);
@@ -297,7 +299,6 @@
                 ctx.fillText("PEKERJAAN", 520, y + 24);
                 ctx.fillText("BERAT (KG)", 660, y + 24);
 
-                // Isi List
                 y += 38;
                 laundryData.forEach((item, index) => {
                     ctx.fillStyle = index % 2 === 0 ? "#FFFFFF" : "#F1F5F9";
@@ -325,18 +326,15 @@
                 link.click();
             };
 
-            // Format 2: Gambar "FORMULIR KERJA HARIAN" Persis Cetakan Fisik
             const generateOfficialFormJPEG = () => {
                 const canvas = document.createElement("canvas");
                 canvas.width = 1240;
                 canvas.height = 1750;
                 const ctx = canvas.getContext("2d");
 
-                // Kertas Putih
                 ctx.fillStyle = "#FFFFFF";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                // Bingkai Judul
                 ctx.strokeStyle = "#1E3A8A";
                 ctx.lineWidth = 2.5;
                 ctx.strokeRect(60, 50, 1120, 75);
@@ -346,14 +344,12 @@
                 ctx.textAlign = "center";
                 ctx.fillText("FORMULIR KERJA HARIAN", canvas.width / 2, 100);
 
-                // Nama Karyawan & Hari/Tanggal
                 ctx.textAlign = "left";
                 ctx.font = "bold 16px Arial";
                 ctx.fillStyle = "#0F296B";
                 ctx.fillText("NAMA KARYAWAN  :", 60, 165);
                 ctx.fillText("HARI / TANGGAL    :", 620, 165);
 
-                // Garis titik-titik isian
                 ctx.strokeStyle = "#64748B";
                 ctx.lineWidth = 1;
                 ctx.beginPath();
@@ -361,14 +357,12 @@
                 ctx.moveTo(790, 168); ctx.lineTo(1080, 168);
                 ctx.stroke();
 
-                // Isi Nama & Tanggal
                 ctx.font = "bold 18px Arial";
                 ctx.fillStyle = "#000000";
                 ctx.fillText(employeeName || "-", 235, 163);
                 const tglStr = new Date().toLocaleDateString("id-ID", { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
                 ctx.fillText(tglStr, 795, 163);
 
-                // Bagian TOTAL KILOAN (Kiri) & TOTAL SATUAN (Kanan)
                 ctx.font = "bold 16px Arial";
                 ctx.fillStyle = "#0F296B";
                 ctx.fillText("TOTAL KILOAN", 60, 210);
@@ -425,30 +419,22 @@
                     yPos += 30;
                 });
 
-                // ==========================================
-                // TABEL UTAMA (30 BARIS PERSIS FORMULIR ASLI)
-                // ==========================================
                 const tableTop = 415;
                 const headerH = 54;
                 const rowH = 38;
-                // Koordinat X tiap kolom:
-                // NO(60-105), NAMA(105-355), NOTA(355-525), WAKTU(525-655), CUCI(655-720), KERING(720-785), SETRIKA(785-850), LIPAT(850-915), PACKING(915-980), KET(980-1085), SATUAN(1085-1180)
                 const colX = [60, 105, 355, 525, 655, 720, 785, 850, 915, 980, 1085, 1180];
 
-                // Background Header Tabel
                 ctx.fillStyle = "#E2E8F0";
                 ctx.fillRect(60, tableTop, 1120, headerH);
                 ctx.strokeStyle = "#1E3A8A";
                 ctx.lineWidth = 1.8;
                 ctx.strokeRect(60, tableTop, 1120, headerH);
 
-                // Garis tengah sub-header PROSES KERJA
                 ctx.beginPath();
                 ctx.moveTo(655, tableTop + 27);
                 ctx.lineTo(980, tableTop + 27);
                 ctx.stroke();
 
-                // Teks Header Tabel
                 ctx.fillStyle = "#0F296B";
                 ctx.font = "bold 13px Arial";
                 ctx.textAlign = "center";
@@ -467,12 +453,10 @@
                 ctx.fillText("LIPAT", 882.5, tableTop + 45);
                 ctx.fillText("PACKING", 947.5, tableTop + 45);
 
-                // Gambar 30 Baris Data (Belang Biru-Putih seperti formulir fisik)
-                const chronologicalData = [...laundryData].reverse(); // Urutkan dari input pertama di nomor 1
+                const chronologicalData = [...laundryData].reverse();
 
                 for (let i = 0; i < 30; i++) {
                     const rY = tableTop + headerH + (i * rowH);
-                    // Warna belang biru muda pada baris ganjil (No 1, 3, 5 dst)
                     ctx.fillStyle = (i % 2 === 0) ? "#CBD5E1" : "#FFFFFF";
                     ctx.fillRect(60, rY, 1120, rowH);
 
@@ -480,7 +464,6 @@
                     ctx.lineWidth = 1;
                     ctx.strokeRect(60, rY, 1120, rowH);
 
-                    // Nomor Baris
                     ctx.fillStyle = "#0F296B";
                     ctx.font = "bold 12px Arial";
                     ctx.textAlign = "center";
@@ -497,11 +480,9 @@
                         ctx.textAlign = "center";
                         ctx.fillText(item.resi.substring(0, 20), 440, rY + 24);
 
-                        // Ambil jam atau tanggal ringkas
                         const shortTime = item.waktu.replace(/^[A-Za-z]+,\s*/, "").substring(0, 16);
                         ctx.fillText(shortTime, 590, rY + 24);
 
-                        // Isi angka KG di kolom pekerjaan yang sesuai
                         ctx.font = "bold 14px Arial";
                         const kgText = Number(item.berat).toFixed(1);
                         if (item.pekerjaan === "CUCI") ctx.fillText(kgText, 687.5, rY + 24);
@@ -517,20 +498,17 @@
                     }
                 }
 
-                // Garis Vertikal Kolom Tabel
                 const tableBottom = tableTop + headerH + (30 * rowH);
                 ctx.strokeStyle = "#1E3A8A";
                 ctx.lineWidth = 1.4;
                 colX.forEach((x, idx) => {
                     ctx.beginPath();
-                    // Kolom sub-proses mulai dari bawah judul "PROSES KERJA (Kg)"
                     const startY = (idx >= 5 && idx <= 8) ? tableTop + 27 : tableTop;
                     ctx.moveTo(x, startY);
                     ctx.lineTo(x, tableBottom);
                     ctx.stroke();
                 });
 
-                // Footer kanan bawah
                 ctx.fillStyle = "#0F296B";
                 ctx.font = "bold 13px Arial";
                 ctx.textAlign = "right";
@@ -551,46 +529,75 @@
                                 FS
                             </div>
                             <div>
-                                <h1 class="font-extrabold text-slate-800 text-base leading-tight">Fresh Story Laundry</h1>
+                                <h1 class="font-extrabold text-slate-800 text-base leading-tight font-serif">Fresh Story Laundry</h1>
                                 <div class="flex items-center gap-1.5 mt-0.5">
-                                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                    <span class="text-xs text-slate-500 font-medium">Auto-Save Google Sheet Aktif</span>
+                                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                    <span class="text-xs text-slate-500 font-medium">Auto-Save Cloud Aktif</span>
                                 </div>
                             </div>
                         </div>
                         <button 
                             onClick={() => setShowSettings(!showSettings)}
-                            class="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
-                            title="Pengaturan Link Google Sheet"
+                            class={`p-2.5 rounded-xl border transition ${showSettings ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'}`}
                         >
                             <i data-lucide="settings" class="w-5 h-5"></i>
                         </button>
                     </div>
 
-                    {/* Panel Pengaturan URL Google Sheet */}
+                    {/* Menu Pengaturan API & Google Sheets */}
                     {showSettings && (
-                        <div class="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-4 shadow-sm">
-                            <label class="block text-xs font-bold text-blue-900 uppercase mb-1">
-                                URL Web App Google Sheet Anda:
-                            </label>
-                            <input 
-                                type="text"
-                                value={scriptUrl}
-                                onChange={(e) => {
-                                    setScriptUrl(e.target.value);
-                                    localStorage.setItem("fsl_script_url", e.target.value);
-                                }}
-                                placeholder="https://script.google.com/macros/s/..../exec"
-                                class="w-full px-3 py-2 text-xs bg-white border border-blue-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                            <p class="text-[11px] text-blue-700 mt-1.5">
-                                *Ganti URL di atas dengan URL hasil Deploy Apps Script dari Google Sheet milik Anda.
-                            </p>
+                        <div class="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-4 shadow-lg space-y-4 animate-fadeIn">
+                            <div class="flex items-center justify-between border-b border-blue-100 pb-2">
+                                <h3 class="font-extrabold text-blue-900 text-xs flex items-center gap-1.5 uppercase">
+                                    <i data-lucide="sliders-horizontal" class="w-4 h-4 text-blue-700"></i> Pengaturan Karyawan
+                                </h3>
+                                <button onClick={() => setShowSettings(false)} class="text-blue-500 hover:text-blue-800 text-xs font-bold">
+                                    Tutup [x]
+                                </button>
+                            </div>
+
+                            {/* Kolom INPUT MANDIRI Gemini API Key oleh Karyawan */}
+                            <div>
+                                <label class="block text-xs font-bold text-blue-900 mb-1 flex justify-between items-center">
+                                    <span>Gemini API Key Anda:</span>
+                                    {!geminiApiKey && <span class="text-red-500 font-bold font-sans">Belum Terisi ⚠️</span>}
+                                </label>
+                                <input 
+                                    type="password"
+                                    value={geminiApiKey}
+                                    onChange={(e) => {
+                                        setGeminiApiKey(e.target.value);
+                                        localStorage.setItem("fsl_gemini_api_key", e.target.value);
+                                    }}
+                                    placeholder="Masukkan kode API Key Gemini Anda di sini..."
+                                    class="w-full px-3.5 py-2.5 bg-white border border-blue-300 rounded-xl font-mono text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                                />
+                                <p class="text-[10px] text-blue-700/80 mt-1.5 leading-relaxed">
+                                    Dapatkan gratis di <strong>audio.google.com</strong>. API Key ini akan tersimpan aman di HP Anda sendiri dan tidak akan bisa dilihat oleh karyawan lain.
+                                </p>
+                            </div>
+
+                            {/* Kolom URL Google Sheets */}
+                            <div>
+                                <label class="block text-xs font-bold text-blue-900 mb-1">
+                                    Link Google Sheet (Apps Script):
+                                </label>
+                                <input 
+                                    type="text"
+                                    value={scriptUrl}
+                                    onChange={(e) => {
+                                        setScriptUrl(e.target.value);
+                                        localStorage.setItem("fsl_script_url", e.target.value);
+                                    }}
+                                    placeholder="https://script.google.com/macros/s/..../exec"
+                                    class="w-full px-3.5 py-2 text-[11px] bg-white border border-blue-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700"
+                                />
+                            </div>
                         </div>
                     )}
 
                     {/* Input Nama Karyawan */}
-                    <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 mb-4">
+                    <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 mb-4 animate-fadeIn">
                         <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
                             Nama Karyawan Bertugas:
                         </label>
@@ -601,31 +608,32 @@
                                 setEmployeeName(e.target.value);
                                 localStorage.setItem("fsl_employee", e.target.value);
                             }}
-                            placeholder="Ketik nama Anda (muncul di Formulir & Sheet)..."
-                            class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Ketik nama Anda di sini..."
+                            class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 animate-pulse-slow"
                         />
                     </div>
 
-                    {/* Notifikasi Error / Sukses */}
+                    {/* Status Sync/Error */}
                     {errorMsg && (
-                        <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3.5 rounded-2xl mb-4 text-sm font-medium flex items-start gap-2.5 shadow-sm">
+                        <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3.5 rounded-2xl mb-4 text-xs font-semibold flex items-start gap-2.5 shadow-sm animate-bounce-short">
                             <i data-lucide="alert-triangle" class="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5"></i>
                             <span>{errorMsg}</span>
                         </div>
                     )}
 
                     {successMsg && (
-                        <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3.5 rounded-2xl mb-4 text-sm font-medium flex items-start gap-2.5 shadow-sm">
+                        <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3.5 rounded-2xl mb-4 text-xs font-semibold flex items-start gap-2.5 shadow-sm animate-fadeIn">
                             <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5"></i>
                             <div>
                                 <p>{successMsg}</p>
-                                {syncStatus === "syncing" && <p class="text-xs text-emerald-600 mt-0.5">⏳ Menyimpan ke Google Sheet...</p>}
-                                {syncStatus === "synced" && <p class="text-xs font-bold text-emerald-700 mt-0.5">✓ Tersimpan di Google Sheet!</p>}
+                                {syncStatus === "syncing" && <p class="text-[10px] text-emerald-600 mt-0.5 animate-pulse">⏳ Menulis ke Google Sheet...</p>}
+                                {syncStatus === "synced" && <p class="text-[10px] font-bold text-emerald-700 mt-0.5">✓ Sukses masuk ke Google Sheet!</p>}
+                                {syncStatus === "failed" && <p class="text-[10px] font-bold text-orange-600 mt-0.5">⚠️ Data tersimpan lokal, namun gagal terkirim ke Google Sheet.</p>}
                             </div>
                         </div>
                     )}
 
-                    {/* Kotak Upload Foto Nota */}
+                    {/* Bagian Unggah Foto */}
                     <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 mb-4">
                         {!selectedImage ? (
                             <label class="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer bg-slate-50 transition">
@@ -638,21 +646,21 @@
                             </label>
                         ) : (
                             <div class="relative rounded-xl overflow-hidden bg-slate-900 max-h-80 flex justify-center">
-                                <img src={selectedImage} alt="Nota" class="max-h-80 object-contain" />
+                                <img src={selectedImage} alt="Nota" class="max-h-80 object-contain shadow-inner" />
                                 <button 
                                     onClick={() => setSelectedImage(null)}
-                                    class="absolute top-3 right-3 bg-red-600 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow flex items-center gap-1"
+                                    class="absolute top-3 right-3 bg-red-600 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow flex items-center gap-1 hover:bg-red-700"
                                 >
-                                    <i data-lucide="x" class="w-4 h-4"></i> Ganti Foto
+                                    <i data-lucide="x" class="w-4 h-4"></i> Hapus
                                 </button>
                             </div>
                         )}
                     </div>
 
-                    {/* Pilihan 1 Pekerjaan (Persis Desain Screenshot) */}
+                    {/* Kategori Pekerjaan */}
                     <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 mb-4">
-                        <p class="font-bold text-slate-800 text-sm mb-3">Pilih Pekerjaan (1 Foto = 1 Pekerjaan):</p>
-                        <div class="flex flex-wrap gap-2.5">
+                        <p class="font-bold text-slate-800 text-xs mb-3">Pekerjaan (Pilih Salah Satu):</p>
+                        <div class="flex flex-wrap gap-2">
                             {JOB_LIST.map((job) => {
                                 const active = selectedJob === job;
                                 return (
@@ -660,14 +668,14 @@
                                         key={job}
                                         type="button"
                                         onClick={() => setSelectedJob(job)}
-                                        class={`px-3.5 py-2.5 rounded-xl border text-xs font-bold flex items-center gap-2 transition ${
+                                        class={`px-3 py-2 rounded-xl border text-[11px] font-bold flex items-center gap-2 transition ${
                                             active 
                                             ? "border-blue-600 bg-blue-50 text-blue-700 shadow-sm" 
-                                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 animate-hoverPulse"
                                         }`}
                                     >
-                                        <span class={`w-4 h-4 rounded flex items-center justify-center border ${
-                                            active ? "bg-blue-600 border-blue-600 text-white" : "border-slate-400"
+                                        <span class={`w-3.5 h-3.5 rounded flex items-center justify-center border ${
+                                            active ? "bg-blue-600 border-blue-600 text-white text-[9px]" : "border-slate-400"
                                         }`}>
                                             {active && "✓"}
                                         </span>
@@ -678,16 +686,16 @@
                         </div>
                     </div>
 
-                    {/* Tombol Eksekusi Utama */}
+                    {/* Tombol Utama */}
                     <button
                         onClick={handleProcessImage}
                         disabled={isProcessing}
-                        class="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-extrabold text-base shadow-lg shadow-blue-600/25 transition disabled:opacity-50 flex items-center justify-center gap-2 mb-6"
+                        class="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-base shadow-lg transition active:scale-[0.99] disabled:opacity-50 flex items-center justify-center gap-2 mb-6"
                     >
                         {isProcessing ? (
                             <>
                                 <span class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                                Membaca & Menyimpan ke Sheet...
+                                Membaca & Menyimpan Data...
                             </>
                         ) : (
                             <>
@@ -697,23 +705,23 @@
                         )}
                     </button>
 
-                    {/* Ringkasan Total KG & Tombol Simpan 2 Format JPEG */}
+                    {/* Panel Rekap */}
                     <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 mb-4">
                         <div class="flex items-center justify-between mb-3">
-                            <h2 class="font-extrabold text-slate-800 text-sm">Total Kiloan per Pekerjaan</h2>
+                            <h2 class="font-extrabold text-slate-800 text-xs">Total Kiloan Harian</h2>
                             <button
                                 onClick={downloadBothJPEGs}
-                                class="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
+                                class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-[10px] font-bold flex items-center gap-1 shadow transition active:scale-[0.97]"
                             >
-                                <i data-lucide="image-down" class="w-4 h-4"></i>
+                                <i data-lucide="image-down" class="w-3.5 h-3.5"></i>
                                 Simpan 2 JPEG (Data & Form)
                             </button>
                         </div>
 
                         <div class="grid grid-cols-3 gap-2">
                             {JOB_LIST.map(job => (
-                                <div key={job} class="bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 text-center">
-                                    <span class="block text-[10px] font-bold text-slate-500">{job}</span>
+                                <div key={job} class="bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-center">
+                                    <span class="block text-[9px] font-bold text-slate-500">{job}</span>
                                     <span class="block text-base font-extrabold text-blue-700 mt-0.5">
                                         {totals[job].toFixed(1)} <span class="text-xs font-normal text-slate-500">Kg</span>
                                     </span>
@@ -722,30 +730,30 @@
                         </div>
                     </div>
 
-                    {/* Daftar Hasil Pembacaan */}
+                    {/* Daftar Hasil */}
                     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                         <div class="p-4 border-b border-slate-100 flex justify-between items-center">
-                            <h2 class="font-extrabold text-slate-800 text-sm">
-                                Daftar Nota Masuk ({laundryData.length})
+                            <h2 class="font-extrabold text-slate-800 text-xs">
+                                Daftar Nota ({laundryData.length})
                             </h2>
                             {laundryData.length > 0 && (
                                 <button 
-                                    onClick={() => { if (confirm("Hapus daftar harian di layar ini?")) saveLocalData([]); }}
+                                    onClick={() => { if (confirm("Hapus seluruh daftar di HP Anda?")) saveLocalData([]); }}
                                     class="text-xs font-bold text-red-500 hover:text-red-700"
                                 >
-                                    Reset Daftar
+                                    Reset
                                 </button>
                             )}
                         </div>
 
                         {laundryData.length === 0 ? (
-                            <div class="p-8 text-center text-slate-400 text-xs font-medium">
-                                Belum ada foto nota yang diproses hari ini.
+                            <div class="p-8 text-center text-slate-400 text-xs">
+                                Belum ada nota yang diproses hari ini.
                             </div>
                         ) : (
                             <div class="divide-y divide-slate-100">
                                 {laundryData.map((item, idx) => (
-                                    <div key={item.id} class="p-4 flex items-center justify-between gap-3 hover:bg-slate-50">
+                                    <div key={item.id} class="p-4 flex items-center justify-between gap-3 hover:bg-slate-50 animate-fadeIn">
                                         <div class="min-w-0 flex-1">
                                             <div class="flex items-center gap-2">
                                                 <span class="text-xs font-bold text-slate-400">#{laundryData.length - idx}</span>
@@ -755,56 +763,20 @@
                                             <p class="text-[11px] text-slate-400">{item.waktu}</p>
                                         </div>
 
-                                        <div class="text-right flex flex-col items-end gap-1.5">
-                                            <span class="px-2.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-[10px] font-extrabold">
+                                        <div class="text-right flex flex-col items-end gap-1">
+                                            <span class="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-[9px] font-extrabold">
                                                 {item.pekerjaan}
                                             </span>
 
                                             {editingId === item.id ? (
-                                                <div class="flex items-center gap-1">
+                                                <div class="flex items-center gap-1 mt-1">
                                                     <input 
                                                         type="number" 
                                                         step="0.1"
                                                         value={editValue}
                                                         onChange={(e) => setEditValue(e.target.value)}
-                                                        class="w-16 px-2 py-1 text-xs border border-blue-400 rounded-lg font-bold text-right"
+                                                        class="w-14 px-1.5 py-0.5 text-xs border border-blue-400 rounded-lg font-bold text-right"
                                                     />
                                                     <button 
                                                         onClick={() => saveEditedWeight(item.id)}
-                                                        class="bg-emerald-600 text-white px-2 py-1 rounded-lg text-xs font-bold"
-                                                    >
-                                                        OK
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <div class="flex items-center gap-2">
-                                                    <span class="font-extrabold text-slate-800 text-sm">{Number(item.berat).toFixed(1)} Kg</span>
-                                                    <button 
-                                                        onClick={() => { setEditingId(item.id); setEditValue(item.berat); }}
-                                                        class="text-xs text-blue-600 underline font-semibold"
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => saveLocalData(laundryData.filter(d => d.id !== item.id))}
-                                                        class="text-xs text-red-500 font-semibold ml-1"
-                                                    >
-                                                        Hapus
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            );
-        }
-
-        const root = ReactDOM.createRoot(document.getElementById("root"));
-        root.render(<App />);
-    </script>
-</body>
-</html>
+                                                        class="bg-emerald-600 text-white px-2 py
