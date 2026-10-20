@@ -389,4 +389,525 @@
                 ctx.moveTo(790, 168); ctx.lineTo(1080, 168);
                 ctx.stroke();
 
-                ctx.font = "bold 18
+                ctx.font = "bold 18px Arial";
+                ctx.fillStyle = "#000000";
+                ctx.fillText(employeeName || "-", 235, 163);
+                const tglStr = new Date().toLocaleDateString("id-ID", { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+                ctx.fillText(tglStr, 795, 163);
+
+                ctx.font = "bold 16px Arial";
+                ctx.fillStyle = "#0F296B";
+                ctx.fillText("TOTAL KILOAN", 60, 210);
+                ctx.beginPath(); ctx.moveTo(60, 214); ctx.lineTo(185, 214); ctx.stroke();
+
+                ctx.fillText("TOTAL SATUAN", 620, 210);
+                ctx.beginPath(); ctx.moveTo(620, 214); ctx.lineTo(750, 214); ctx.stroke();
+
+                const kiloanItems = [
+                    { label: "CUCI", val: totals["CUCI"] },
+                    { label: "KERING", val: totals["DRY"] },
+                    { label: "SETRIKA", val: totals["SETRIKA"] },
+                    { label: "LIPAT", val: totals["LIPAT"] },
+                    { label: "PACKING", val: totals["PACKING"] }
+                ];
+
+                let yPos = 242;
+                kiloanItems.forEach(item => {
+                    ctx.font = "15px Arial";
+                    ctx.fillStyle = "#0F296B";
+                    ctx.fillText(item.label, 60, yPos);
+                    ctx.fillText(":", 195, yPos);
+                    ctx.beginPath(); ctx.moveTo(205, yPos + 3); ctx.lineTo(295, yPos + 3); ctx.stroke();
+                    ctx.font = "bold 16px Arial";
+                    ctx.fillStyle = "#000000";
+                    ctx.fillText(item.val > 0 ? item.val.toFixed(1) : "-", 230, yPos - 1);
+                    ctx.font = "15px Arial";
+                    ctx.fillStyle = "#0F296B";
+                    ctx.fillText("Kg", 305, yPos);
+                    yPos += 30;
+                });
+
+                const satuanItems = [
+                    { label: "SEPATU", val: 0 },
+                    { label: "BED COVER", val: 0 },
+                    { label: "SET SPREI", val: 0 },
+                    { label: "CUCI SATUAN", val: totals["CUCI SATUAN"] },
+                    { label: "LAINNYA", val: 0 }
+                ];
+
+                yPos = 242;
+                satuanItems.forEach(item => {
+                    ctx.font = "15px Arial";
+                    ctx.fillStyle = "#0F296B";
+                    ctx.fillText(item.label, 620, yPos);
+                    ctx.fillText(":", 765, yPos);
+                    ctx.beginPath(); ctx.moveTo(775, yPos + 3); ctx.lineTo(865, yPos + 3); ctx.stroke();
+                    ctx.font = "bold 16px Arial";
+                    ctx.fillStyle = "#000000";
+                    ctx.fillText(item.val > 0 ? item.val.toFixed(1) : "-", 805, yPos - 1);
+                    ctx.font = "15px Arial";
+                    ctx.fillStyle = "#0F296B";
+                    ctx.fillText("Pcs/Kg", 875, yPos);
+                    yPos += 30;
+                });
+
+                const tableTop = 415;
+                const headerH = 54;
+                const rowH = 38;
+                const colX = [60, 105, 355, 525, 655, 720, 785, 850, 915, 980, 1085, 1180];
+
+                ctx.fillStyle = "#E2E8F0";
+                ctx.fillRect(60, tableTop, 1120, headerH);
+                ctx.strokeStyle = "#1E3A8A";
+                ctx.lineWidth = 1.8;
+                ctx.strokeRect(60, tableTop, 1120, headerH);
+
+                ctx.beginPath();
+                ctx.moveTo(655, tableTop + 27);
+                ctx.lineTo(980, tableTop + 27);
+                ctx.stroke();
+
+                ctx.fillStyle = "#0F296B";
+                ctx.font = "bold 13px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("NO", 82.5, tableTop + 32);
+                ctx.fillText("NAMA PELANGGAN", 230, tableTop + 32);
+                ctx.fillText("NO. NOTA", 440, tableTop + 32);
+                ctx.fillText("WAKTU (WIB)", 590, tableTop + 32);
+                ctx.fillText("PROSES KERJA (Kg)", 817.5, tableTop + 19);
+                ctx.fillText("KETERANGAN", 1032.5, tableTop + 32);
+                ctx.fillText("SATUAN", 1132.5, tableTop + 32);
+
+                ctx.font = "bold 11px Arial";
+                ctx.fillText("CUCI", 687.5, tableTop + 45);
+                ctx.fillText("KERING", 752.5, tableTop + 45);
+                ctx.fillText("SETRIKA", 817.5, tableTop + 45);
+                ctx.fillText("LIPAT", 882.5, tableTop + 45);
+                ctx.fillText("PACKING", 947.5, tableTop + 45);
+
+                const chronologicalData = [...laundryData].reverse();
+
+                for (let i = 0; i < 30; i++) {
+                    const rY = tableTop + headerH + (i * rowH);
+                    ctx.fillStyle = (i % 2 === 0) ? "#CBD5E1" : "#FFFFFF";
+                    ctx.fillRect(60, rY, 1120, rowH);
+
+                    ctx.strokeStyle = "#475569";
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(60, rY, 1120, rowH);
+
+                    ctx.fillStyle = "#0F296B";
+                    ctx.font = "bold 12px Arial";
+                    ctx.textAlign = "center";
+                    ctx.fillText(String(i + 1), 82.5, rY + 24);
+
+                    const item = chronologicalData[i];
+                    if (item) {
+                        ctx.fillStyle = "#000000";
+                        ctx.font = "bold 13px Arial";
+                        ctx.textAlign = "left";
+                        ctx.fillText(item.nama.substring(0, 25), 112, rY + 24);
+
+                        ctx.font = "12px Arial";
+                        ctx.textAlign = "center";
+                        ctx.fillText(item.resi.substring(0, 20), 440, rY + 24);
+
+                        const shortTime = item.waktu.replace(/^[A-Za-z]+,\s*/, "").substring(0, 16);
+                        ctx.fillText(shortTime, 590, rY + 24);
+
+                        ctx.font = "bold 14px Arial";
+                        const kgText = Number(item.berat).toFixed(1);
+                        if (item.pekerjaan === "CUCI") ctx.fillText(kgText, 687.5, rY + 24);
+                        if (item.pekerjaan === "DRY") ctx.fillText(kgText, 752.5, rY + 24);
+                        if (item.pekerjaan === "SETRIKA") ctx.fillText(kgText, 817.5, rY + 24);
+                        if (item.pekerjaan === "LIPAT") ctx.fillText(kgText, 882.5, rY + 24);
+                        if (item.pekerjaan === "PACKING") ctx.fillText(kgText, 947.5, rY + 24);
+                        if (item.pekerjaan === "CUCI SATUAN") {
+                            ctx.fillText(kgText, 1132.5, rY + 24);
+                            ctx.font = "11px Arial";
+                            ctx.fillText("Cuci Satuan", 1032.5, rY + 24);
+                        }
+                    }
+                }
+
+                const tableBottom = tableTop + headerH + (30 * rowH);
+                ctx.strokeStyle = "#1E3A8A";
+                ctx.lineWidth = 1.4;
+                colX.forEach((x, idx) => {
+                    ctx.beginPath();
+                    const startY = (idx >= 5 && idx <= 8) ? tableTop + 27 : tableTop;
+                    ctx.moveTo(x, startY);
+                    ctx.lineTo(x, tableBottom);
+                    ctx.stroke();
+                });
+
+                ctx.fillStyle = "#0F296B";
+                ctx.font = "bold 13px Arial";
+                ctx.textAlign = "right";
+                ctx.fillText("LEMBAR KE :  1", 1175, tableBottom + 35);
+
+                const link = document.createElement("a");
+                link.download = `2_Formulir_Kerja_Harian_${employeeName || "Laundry"}_${new Date().toISOString().slice(0,10)}.jpg`;
+                link.href = canvas.toDataURL("image/jpeg", 0.95);
+                link.click();
+            };
+
+            return (
+                <div class="max-w-lg mx-auto px-4 pt-5">
+                    {/* Header App Mobile */}
+                    <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-11 h-11 rounded-xl bg-blue-600 text-white flex items-center justify-center font-extrabold text-lg shadow-sm">
+                                FS
+                            </div>
+                            <div>
+                                <h1 class="font-extrabold text-slate-800 text-base leading-tight font-serif">Fresh Story Laundry</h1>
+                                <div class="flex items-center gap-1.5 mt-0.5">
+                                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                    <span class="text-xs text-slate-500 font-medium">Auto-Save Cloud Aktif</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={() => { setShowSettings(!showSettings); setIsAdminUnlocked(false); }}
+                            class={`p-2.5 rounded-xl border transition ${showSettings ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'}`}
+                        >
+                            <i data-lucide="settings" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+
+                    {/* Menu Pengaturan Aman (PIN ADMIN) */}
+                    {showSettings && (
+                        <div class="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-4 shadow-lg space-y-4 animate-fadeIn">
+                            <div class="flex items-center justify-between border-b border-blue-100 pb-2">
+                                <h3 class="font-extrabold text-blue-900 text-xs flex items-center gap-1.5 uppercase">
+                                    <i data-lucide="sliders-horizontal" class="w-4 h-4 text-blue-700"></i> Pengaturan
+                                </h3>
+                                <button onClick={() => { setShowSettings(false); setIsAdminUnlocked(false); }} class="text-blue-500 hover:text-blue-800 text-xs font-bold">
+                                    Tutup [x]
+                                </button>
+                            </div>
+
+                            {/* Bagian penginputan API Key Gemini (Bisa diisi karyawan) */}
+                            <div>
+                                <label class="block text-xs font-bold text-blue-900 mb-1 flex justify-between items-center">
+                                    <span>Gemini API Key Anda:</span>
+                                    {!geminiApiKey && <span class="text-red-500 font-bold font-sans">Belum Terisi ⚠️</span>}
+                                </label>
+                                <input 
+                                    type="password"
+                                    value={geminiApiKey}
+                                    onChange={(e) => {
+                                        setGeminiApiKey(e.target.value);
+                                        localStorage.setItem("fsl_gemini_api_key", e.target.value);
+                                    }}
+                                    placeholder="Masukkan kode API Key Gemini Anda di sini..."
+                                    class="w-full px-3.5 py-2.5 bg-white border border-blue-300 rounded-xl font-mono text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                                />
+                                <p class="text-[10px] text-blue-700/80 mt-1 leading-relaxed">
+                                    Masing-masing karyawan harus memasukkan kunci Gemini API sendiri.
+                                </p>
+                            </div>
+
+                            <hr class="border-blue-200" />
+
+                            {/* Akses Admin (Ganti Google Sheet URL) */}
+                            {!isAdminUnlocked ? (
+                                <form onSubmit={handleAdminLogin} class="space-y-2">
+                                    <label class="block text-xs font-bold text-slate-700">Akses khusus Admin / Owner:</label>
+                                    <div class="flex gap-2">
+                                        <input 
+                                            type="password"
+                                            value={adminPasswordInput}
+                                            onChange={(e) => setAdminPasswordInput(e.target.value)}
+                                            placeholder="Masukkan PIN Admin untuk Ganti URL..."
+                                            class="flex-1 px-3 py-2 text-xs bg-white border border-blue-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 font-bold tracking-widest"
+                                        />
+                                        <button 
+                                            type="submit"
+                                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-xl"
+                                        >
+                                            Buka
+                                        </button>
+                                    </div>
+                                    <p class="text-[9px] text-slate-500">*Masukan PIN (Bawaan: 1234) untuk mengakses URL Google Sheet.</p>
+                                </form>
+                            ) : (
+                                <div class="bg-white border border-blue-100 rounded-xl p-3 space-y-3 animate-fadeIn">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-xs font-bold text-emerald-600 flex items-center gap-1"><i data-lucide="shield-check" class="w-4 h-4"></i> Akses Admin Terbuka</span>
+                                        <button onClick={() => setIsAdminUnlocked(false)} class="text-xs text-red-500 font-bold underline">Kunci Kembali</button>
+                                    </div>
+
+                                    {/* Link Google Sheet yang Tersembunyi */}
+                                    <div>
+                                        <label class="block text-xs font-bold text-blue-900 mb-1">
+                                            Link Google Sheet (Apps Script):
+                                        </label>
+                                        <input 
+                                            type="text"
+                                            value={scriptUrl}
+                                            onChange={(e) => {
+                                                setScriptUrl(e.target.value);
+                                                localStorage.setItem("fsl_script_url", e.target.value);
+                                            }}
+                                            placeholder="https://script.google.com/macros/s/..../exec"
+                                            class="w-full px-3.5 py-2 text-[11px] bg-slate-50 border border-blue-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700"
+                                        />
+                                    </div>
+
+                                    {/* Ganti PIN Admin */}
+                                    <div class="border-t border-slate-100 pt-2">
+                                        {!isChangingPass ? (
+                                            <button 
+                                                onClick={() => setIsChangingPass(true)} 
+                                                class="text-xs text-blue-600 font-semibold underline flex items-center gap-1"
+                                            >
+                                                <i data-lucide="key" class="w-3 h-3"></i> Ubah Kata Sandi Admin
+                                            </button>
+                                        ) : (
+                                            <form onSubmit={handleSaveNewPassword} class="space-y-1.5">
+                                                <label class="block text-[10px] font-bold text-slate-600">Kata Sandi Baru:</label>
+                                                <div class="flex gap-2">
+                                                    <input 
+                                                        type="password" 
+                                                        value={newAdminPassword}
+                                                        onChange={(e) => setNewAdminPassword(e.target.value)}
+                                                        placeholder="Sandi baru..."
+                                                        class="flex-1 px-3 py-1 text-xs border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-800"
+                                                    />
+                                                    <button 
+                                                        type="submit" 
+                                                        class="bg-emerald-600 text-white text-[10px] font-bold px-3 rounded-lg"
+                                                    >
+                                                        Simpan
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Input Nama Karyawan */}
+                    <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 mb-4 animate-fadeIn">
+                        <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+                            Nama Karyawan Bertugas:
+                        </label>
+                        <input 
+                            type="text"
+                            value={employeeName}
+                            onChange={(e) => {
+                                setEmployeeName(e.target.value);
+                                localStorage.setItem("fsl_employee", e.target.value);
+                            }}
+                            placeholder="Ketik nama Anda di sini..."
+                            class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+
+                    {/* Status Sync/Error */}
+                    {errorMsg && (
+                        <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3.5 rounded-2xl mb-4 text-xs font-semibold flex items-start gap-2.5 shadow-sm">
+                            <i data-lucide="alert-triangle" class="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5"></i>
+                            <span>{errorMsg}</span>
+                        </div>
+                    )}
+
+                    {successMsg && (
+                        <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3.5 rounded-2xl mb-4 text-xs font-semibold flex items-start gap-2.5 shadow-sm animate-fadeIn">
+                            <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5"></i>
+                            <div>
+                                <p>{successMsg}</p>
+                                {syncStatus === "syncing" && <p class="text-[10px] text-emerald-600 mt-0.5">⏳ Menulis ke Google Sheet...</p>}
+                                {syncStatus === "synced" && <p class="text-[10px] font-bold text-emerald-700 mt-0.5">✓ Sukses masuk ke Google Sheet!</p>}
+                                {syncStatus === "failed" && <p class="text-[10px] font-bold text-orange-600 mt-0.5">⚠️ Data tersimpan lokal, namun gagal terkirim ke Google Sheet.</p>}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Bagian Unggah Foto */}
+                    <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 mb-4">
+                        {!selectedImage ? (
+                            <label class="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer bg-slate-50 transition">
+                                <input type="file" accept="image/*" onChange={handleImageUpload} class="hidden" />
+                                <div class="w-14 h-14 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mb-3">
+                                    <i data-lucide="camera" class="w-7 h-7"></i>
+                                </div>
+                                <span class="font-bold text-slate-700 text-sm">Ambil Foto / Pilih Gambar Nota</span>
+                                <span class="text-xs text-slate-400 mt-1">Otomatis membaca Nama, Resi, Waktu & KG</span>
+                            </label>
+                        ) : (
+                            <div class="relative rounded-xl overflow-hidden bg-slate-900 max-h-80 flex justify-center">
+                                <img src={selectedImage} alt="Nota" class="max-h-80 object-contain shadow-inner" />
+                                <button 
+                                    onClick={() => setSelectedImage(null)}
+                                    class="absolute top-3 right-3 bg-red-600 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow flex items-center gap-1 hover:bg-red-700"
+                                >
+                                    <i data-lucide="x" class="w-4 h-4"></i> Hapus
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Kategori Pekerjaan */}
+                    <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 mb-4">
+                        <p class="font-bold text-slate-800 text-xs mb-3">Pekerjaan (Pilih Salah Satu):</p>
+                        <div class="flex flex-wrap gap-2">
+                            {JOB_LIST.map((job) => {
+                                const active = selectedJob === job;
+                                return (
+                                    <button
+                                        key={job}
+                                        type="button"
+                                        onClick={() => setSelectedJob(job)}
+                                        class={`px-3 py-2 rounded-xl border text-[11px] font-bold flex items-center gap-2 transition ${
+                                            active 
+                                            ? "border-blue-600 bg-blue-50 text-blue-700 shadow-sm" 
+                                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                                        }`}
+                                    >
+                                        <span class={`w-3.5 h-3.5 rounded flex items-center justify-center border ${
+                                            active ? "bg-blue-600 border-blue-600 text-white text-[9px]" : "border-slate-400"
+                                        }`}>
+                                            {active && "✓"}
+                                        </span>
+                                        {job}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Tombol Utama */}
+                    <button
+                        onClick={handleProcessImage}
+                        disabled={isProcessing}
+                        class="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-base shadow-lg transition disabled:opacity-50 flex items-center justify-center gap-2 mb-6 animate-pulse-slow"
+                    >
+                        {isProcessing ? (
+                            <>
+                                <span class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                                Membaca & Menyimpan Data...
+                            </>
+                        ) : (
+                            <>
+                                <i data-lucide="scan-line" class="w-5 h-5"></i>
+                                Baca Data dari Gambar
+                            </>
+                        )}
+                    </button>
+
+                    {/* Panel Rekap */}
+                    <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 mb-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <h2 class="font-extrabold text-slate-800 text-xs flex items-center gap-1"><i data-lucide="activity" class="w-4 h-4 text-blue-600 animate-pulse"></i> Total Kiloan Harian</h2>
+                            <button
+                                onClick={downloadBothJPEGs}
+                                class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-[10px] font-bold flex items-center gap-1 shadow transition"
+                            >
+                                <i data-lucide="image-down" class="w-3.5 h-3.5"></i>
+                                Simpan 2 JPEG (Data & Form)
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-2">
+                            {JOB_LIST.map(job => (
+                                <div key={job} class="bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-center shadow-sm">
+                                    <span class="block text-[9px] font-bold text-slate-500">{job}</span>
+                                    <span class="block text-base font-extrabold text-blue-700 mt-0.5">
+                                        {totals[job].toFixed(1)} <span class="text-xs font-normal text-slate-500">Kg</span>
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Daftar Hasil */}
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div class="p-4 border-b border-slate-100 flex justify-between items-center">
+                            <h2 class="font-extrabold text-slate-800 text-xs">
+                                Daftar Nota ({laundryData.length})
+                            </h2>
+                            {laundryData.length > 0 && (
+                                <button 
+                                    onClick={() => { if (confirm("Hapus seluruh daftar di HP Anda?")) saveLocalData([]); }}
+                                    class="text-xs font-bold text-red-500 hover:text-red-700 transition"
+                                >
+                                    Reset
+                                </button>
+                            )}
+                        </div>
+
+                        {laundryData.length === 0 ? (
+                            <div class="p-8 text-center text-slate-400 text-xs font-medium">
+                                Belum ada nota yang diproses hari ini.
+                            </div>
+                        ) : (
+                            <div class="divide-y divide-slate-100">
+                                {laundryData.map((item, idx) => (
+                                    <div key={item.id} class="p-4 flex items-center justify-between gap-3 hover:bg-slate-50 animate-fadeIn">
+                                        <div class="min-w-0 flex-1">
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-xs font-bold text-slate-400">#{laundryData.length - idx}</span>
+                                                <p class="font-bold text-slate-800 text-sm truncate">{item.nama}</p>
+                                            </div>
+                                            <p class="text-xs font-mono text-slate-500 mt-0.5">{item.resi}</p>
+                                            <p class="text-[11px] text-slate-400">{item.waktu}</p>
+                                        </div>
+
+                                        <div class="text-right flex flex-col items-end gap-1">
+                                            <span class="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-[9px] font-extrabold">
+                                                {item.pekerjaan}
+                                            </span>
+
+                                            {editingId === item.id ? (
+                                                <div class="flex items-center gap-1 mt-1">
+                                                    <input 
+                                                        type="number" 
+                                                        step="0.1"
+                                                        value={editValue}
+                                                        onChange={(e) => setEditValue(e.target.value)}
+                                                        class="w-14 px-1.5 py-0.5 text-xs border border-blue-400 rounded-lg font-bold text-right"
+                                                    />
+                                                    <button 
+                                                        onClick={() => saveEditedWeight(item.id)}
+                                                        class="bg-emerald-600 text-white px-2 py-0.5 rounded-lg text-[10px] font-bold shadow-sm"
+                                                    >
+                                                        Simpan
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div class="flex items-center gap-1.5 mt-1 text-xs">
+                                                    <span class="font-extrabold text-slate-800">{Number(item.berat).toFixed(1)} Kg</span>
+                                                    <button 
+                                                        onClick={() => { setEditingId(item.id); setEditValue(item.berat); }}
+                                                        class="text-blue-600 underline font-medium hover:text-blue-800 transition"
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => saveLocalData(laundryData.filter(d => d.id !== item.id))}
+                                                        class="text-red-500 ml-1 hover:text-red-700 transition"
+                                                    >
+                                                        Hapus
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById("root"));
+        root.render(<App />);
+    </script>
+</body>
+</html>
